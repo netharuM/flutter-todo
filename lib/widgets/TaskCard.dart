@@ -17,12 +17,14 @@ class TaskCard extends StatelessWidget {
     return Container(
       child: Container(
         decoration: BoxDecoration(
-          color: Color(0xFF1c2541),
+          color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Material(
           color: Colors.transparent,
           child: InkWell(
+            splashColor: Color(0xff4260ee).withOpacity(0.5),
+            highlightColor: Color(0xff4260ee).withOpacity(0.4),
             borderRadius: BorderRadius.circular(12),
             onTap: () {
               if (onTap != null) {

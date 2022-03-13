@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:todo/DBHandler.dart';
 import 'package:todo/models/task.dart';
 import 'package:todo/models/todo.dart';
@@ -23,6 +24,15 @@ class _TaskEditingPageState extends State<TaskEditingPage> {
   TextEditingController _descController = new TextEditingController();
   TextEditingController _newTodoController = new TextEditingController();
   DBHandler _dbHandler = DBHandler.instance;
+  List<Todo> _todos = [];
+
+  void _refresh() {
+    _dbHandler.getTodos(this._id ?? 0).then((value) {
+      setState(() {
+        this._todos = value;
+      });
+    });
+  }
 
   @override
   void initState() {
@@ -30,6 +40,7 @@ class _TaskEditingPageState extends State<TaskEditingPage> {
     this._titleController.text = widget.task?.title ?? '';
     this._descController.text = widget.task?.description ?? '';
     this._id = widget.task?.id;
+    _refresh();
     super.initState();
   }
 
@@ -44,6 +55,7 @@ class _TaskEditingPageState extends State<TaskEditingPage> {
   Future<void> _updateTask() async {
     Task newTask = new Task(
       id: this.widget.task?.id ?? null,
+      position: this.widget.task?.position ?? 0,
       title: this._titleController.text.isNotEmpty
           ? this._titleController.text
           : null,
@@ -111,49 +123,125 @@ class _TaskEditingPageState extends State<TaskEditingPage> {
                   visible: _notANewTask,
                   child: Expanded(
                     child: ScrollConfiguration(
-                      behavior: NoGlowBehaviour(),
-                      child: FutureBuilder(
-                        initialData: [],
-                        future: _dbHandler.getTodos(this._id ?? 0),
-                        builder: (context, AsyncSnapshot snapshot) {
-                          return ListView.builder(
-                              itemCount: snapshot.data.length,
-                              itemBuilder: (context, index) {
-                                return TodoWidget(
-                                  todo: snapshot.data[index],
-                                  onTap: (state) {
-                                    Todo newTodo = new Todo(
-                                      id: snapshot.data[index].id,
-                                      taskId: this._id,
-                                      completed: state,
-                                      title: snapshot.data[index].title,
-                                    );
-                                    _dbHandler.updateTodo(newTodo);
-                                    setState(() {});
-                                  },
-                                  onLongPress: () {
-                                    showDialog(
-                                      context: context,
-                                      builder: (BuildContext context) {
-                                        return createDeleteConfirmation(
-                                          context: context,
-                                          title:
-                                              "delete todo '${snapshot.data[index].title}'",
-                                          onDelete: () {
-                                            _dbHandler.deleteTodo(
-                                                snapshot.data[index].id);
-                                            setState(() {});
-                                            // Navigator.pop(context);
-                                          },
-                                        );
-                                      },
-                                    );
-                                  },
-                                );
+                        behavior: NoGlowBehaviour(),
+                        child: Theme(
+                          data: Theme.of(context).copyWith(
+                            canvasColor: Colors.transparent,
+                            shadowColor: Colors.transparent,
+                          ),
+                          child: ReorderableListView(
+                            proxyDecorator: (
+                              Widget child,
+                              int index,
+                              Animation<double> animation,
+                            ) {
+                              return Container(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(10),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.1),
+                                      spreadRadius: 2,
+                                      blurRadius: 4,
+                                      offset: Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Theme(
+                                  data: Theme.of(context).copyWith(
+                                    cardColor: Theme.of(context).splashColor,
+                                  ),
+                                  child: child,
+                                ),
+                              );
+                            },
+                            onReorder: (int oldIndex, int newIndex) {
+                              _dbHandler
+                                  .moveTodo(_id!, oldIndex, newIndex)
+                                  .then((value) {
+                                _refresh();
                               });
-                        },
-                      ),
-                    ),
+                              setState(() {
+                                if (oldIndex < newIndex) {
+                                  newIndex -= 1;
+                                }
+                                final Todo item = _todos.removeAt(oldIndex);
+                                _todos.insert(newIndex, item);
+                              });
+                            },
+                            children: <Widget>[
+                              for (int i = 0; i < _todos.length; i++)
+                                Slidable(
+                                  startActionPane: ActionPane(
+                                    extentRatio: 0.25,
+                                    motion: ScrollMotion(),
+                                    children: [
+                                      Builder(builder: (BuildContext context) {
+                                        return Expanded(
+                                          child: Container(
+                                            margin: EdgeInsets.symmetric(
+                                                horizontal: 8, vertical: 2),
+                                            height: double.infinity,
+                                            decoration: BoxDecoration(
+                                                color:
+                                                    Theme.of(context).cardColor,
+                                                borderRadius:
+                                                    BorderRadius.circular(12)),
+                                            child: Material(
+                                              color: Colors.transparent,
+                                              child: InkWell(
+                                                onLongPress: () {},
+                                                onTap: () {
+                                                  showDialog(
+                                                    context: context,
+                                                    builder:
+                                                        (BuildContext context) {
+                                                      return createDeleteConfirmation(
+                                                          context: context,
+                                                          title:
+                                                              "delete todo ${_todos[i].title}",
+                                                          onDelete: () async {
+                                                            await _dbHandler
+                                                                .deleteTodo(
+                                                                    _todos[i]
+                                                                        .id!);
+                                                            _refresh();
+                                                          });
+                                                    },
+                                                  );
+                                                },
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
+                                                child: Icon(
+                                                  Icons.delete_forever_rounded,
+                                                  color: Color(0xfff72785),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      })
+                                    ],
+                                  ),
+                                  key: ValueKey(_todos[i].id),
+                                  child: TodoWidget(
+                                    todo: _todos[i],
+                                    onTap: (state) async {
+                                      Todo newTodo = new Todo(
+                                        id: _todos[i].id,
+                                        taskId: this._id,
+                                        position: _todos[i].position,
+                                        completed: state,
+                                        title: _todos[i].title,
+                                      );
+                                      await _dbHandler.updateTodo(newTodo);
+                                      _refresh();
+                                    },
+                                  ),
+                                ),
+                            ],
+                          ),
+                        )),
                   ),
                 ),
                 Visibility(
@@ -161,9 +249,15 @@ class _TaskEditingPageState extends State<TaskEditingPage> {
                     child: NewTodoInput(
                       controller: _newTodoController,
                       onSubmitted: (value) async {
-                        _dbHandler.insertTodo(new Todo(
-                            title: value, completed: false, taskId: this._id));
-                        setState(() {});
+                        await _dbHandler.insertTodo(
+                          new Todo(
+                            title: value,
+                            completed: false,
+                            position: _todos.length,
+                            taskId: this._id,
+                          ),
+                        );
+                        _refresh();
                         _newTodoController.text = '';
                       },
                     )),
@@ -195,9 +289,13 @@ class _TaskEditingPageState extends State<TaskEditingPage> {
                       visible: _titleChanged,
                       child: SaveButton(
                         onTap: () async {
-                          Task newTask = new Task(title: _titleController.text);
+                          List<Task> tasks = await _dbHandler.getTasks();
+                          Task newTask = new Task(
+                              title: _titleController.text,
+                              position: tasks.length);
                           int taskID = await _dbHandler.insertTask(newTask);
                           newTask = Task(
+                            position: newTask.position,
                             id: taskID,
                             title: newTask.title,
                           );

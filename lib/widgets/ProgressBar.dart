@@ -48,12 +48,13 @@ class _ProgressBarState extends State<ProgressBar>
     _animController.forward();
     return this.widget.enableCompleteIcon
         ? Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               Padding(
                 padding: this.widget.barPadding ??
                     const EdgeInsets.symmetric(vertical: 12),
                 child: SizedBox(
-                    width: 310,
+                    width: 270,
                     child: _LinearProgressBar(
                       backgroundColor: this.widget.backgroundColor,
                       progressColor: this.widget.progressColor,

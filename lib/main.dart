@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:todo/pages/HomePage.dart';
 
 void main() {
-  WidgetsFlutterBinding.ensureInitialized();
+  // WidgetsFlutterBinding.ensureInitialized();
   runApp(App());
 }
 
@@ -10,7 +10,7 @@ class App extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'Todo App',
       theme: ThemeData(
         primarySwatch: Colors.blue,
         scaffoldBackgroundColor: Color(0xFF0b132b),
@@ -19,6 +19,7 @@ class App extends StatelessWidget {
           headline6: TextStyle(color: Colors.white),
           bodyText2: TextStyle(color: Colors.white),
         ),
+        cardColor: Color(0xFF1c2541),
       ),
       home: HomePage(),
     );
